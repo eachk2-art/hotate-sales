@@ -545,7 +545,7 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
         </div>
         <div class="form-group">
           <span class="form-label">数量</span>
-          <input type="number" id="inputQty" min="0" step="0.1" placeholder="0" oninput="calcPreview()">
+          <input type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" id="inputQty" placeholder="0" oninput="calcPreview()">
         </div>
         <div class="form-group">
           <span class="form-label">単位</span>
@@ -557,7 +557,7 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
         <div class="form-group">
           <span class="form-label">単価（円）</span>
           <div class="input-wrap">
-            <input type="number" id="inputPrice" min="0" step="1" placeholder="0" oninput="calcPreview()">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" id="inputPrice" placeholder="0" oninput="calcPreview()">
             <span class="input-unit">円</span>
           </div>
           <div class="spot-hint" id="spotHint" style="display:none">⚠ 時価：都度入力してください</div>
@@ -824,7 +824,7 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
           <div class="form-group">
             <span class="form-label">単価（円）</span>
             <div class="input-wrap">
-              <input type="number" id="newGroupPrice" min="0" step="1" placeholder="200">
+              <input type="text" inputmode="numeric" pattern="[0-9]*" id="newGroupPrice" placeholder="200">
               <span class="input-unit">円</span>
             </div>
           </div>
@@ -2082,7 +2082,7 @@ function openGroupPriceModal(groupKey, groupName, currentPrice) {
     <div style="display:grid;gap:10px">
       <div class="form-group">
         <span class="form-label">新しい単価（円）</span>
-        <div class="input-wrap"><input type="number" id="newPriceVal" value="${currentPrice}" min="0" step="1"><span class="input-unit">円</span></div>
+        <div class="input-wrap"><input type="text" inputmode="numeric" pattern="[0-9]*" id="newPriceVal" value="${currentPrice}"><span class="input-unit">円</span></div>
       </div>
       <div class="form-group">
         <span class="form-label">適用開始日</span>
