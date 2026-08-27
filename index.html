@@ -129,6 +129,10 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px rgba(45,106,159,0.12);
 }
 input[type="date"] { cursor: pointer; }
+input[type="checkbox"] {
+  -webkit-appearance: checkbox; appearance: checkbox;
+  width: 16px; height: 16px; padding: 0; accent-color: var(--ocean);
+}
 input.spot-input { border-color: var(--spot); background: var(--spot-l); }
 
 .input-wrap { position: relative; }
