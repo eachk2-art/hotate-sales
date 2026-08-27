@@ -1264,16 +1264,16 @@ function updateInvoiceClosingNote() {
   const period = document.getElementById('invoicePeriodType').value;
   if (!year || !month) { el.textContent = ''; return; }
 
-  let start, end;
+  let start, end, due;
   if (period === '15') {
     start = new Date(year, month-1, 1);
     end   = new Date(year, month-1, 15);
+    due   = new Date(year, month, 0);   // その月の末日
   } else {
     start = new Date(year, month-1, 16);
     end   = new Date(year, month, 0);
+    due   = new Date(year, month, 15);  // 翌月15日
   }
-  const due = new Date(end);
-  due.setDate(due.getDate() + 15);
 
   const f = d => `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
   el.textContent = `対象期間：${f(start)}〜${f(end)}　／　支払期日目安：${f(due)}`;
