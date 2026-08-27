@@ -715,6 +715,15 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
           <select id="invoiceMonth"></select>
         </div>
       </div>
+      <div class="form-grid" style="grid-template-columns:1fr;margin-top:10px">
+        <div class="form-group">
+          <span class="form-label">締め区分</span>
+          <select id="invoicePeriodType">
+            <option value="15">15日締め（1日〜15日分）</option>
+            <option value="eom">月末締め（16日〜末日分）</option>
+          </select>
+        </div>
+      </div>
       <div style="margin-top:10px;font-size:0.78rem;color:var(--text-mid)" id="invoiceClosingNote"></div>
       <div class="btn-row" style="margin-top:16px">
         <button class="btn btn-primary" id="btnInvoiceGen" onclick="generateInvoice()">🧾 請求書PDFを作成</button>
@@ -751,7 +760,7 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
     </div>
     <div class="setting-card-body" id="sectionCompany">
       <div class="setting-section">
-        <p style="font-size:0.78rem;color:var(--text-mid);margin-bottom:12px">締め日・請求書発行の要否は各社ごとに設定できます（ヒアリング回答後に更新してください）。</p>
+        <p style="font-size:0.78rem;color:var(--text-mid);margin-bottom:12px">締め日は全取引先共通で月2回（1〜15日／16日〜末日）です。請求書発行の要否のみ、会社ごとに設定できます。</p>
         <div class="master-list" id="companyList"></div>
         <div class="add-form">
           <div class="form-group">
@@ -956,6 +965,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     invYearSel.addEventListener('change', updateInvoiceClosingNote);
     invMonthSel.addEventListener('change', updateInvoiceClosingNote);
     document.getElementById('invoiceCompany').addEventListener('change', updateInvoiceClosingNote);
+    const invPeriodSel = document.getElementById('invoicePeriodType');
+    if (invPeriodSel) invPeriodSel.addEventListener('change', updateInvoiceClosingNote);
   }
 
   const seasonSel = document.getElementById('seasonYear');
@@ -1246,13 +1257,26 @@ function buildInvoiceCompanySelect() {
 }
 
 function updateInvoiceClosingNote() {
-  const key = document.getElementById('invoiceCompany').value;
-  const c = (masters.companies||[]).find(x=>x.key===key);
   const el = document.getElementById('invoiceClosingNote');
   if (!el) return;
-  if (!c) { el.textContent = ''; return; }
-  const closing = (c.closingDay === '15') ? '15日締め（前月16日〜当月15日分）' : '月末締め（当月1日〜末日分）';
-  el.textContent = `締め日：${closing}　※未確定の場合は設定画面で変更できます`;
+  const year   = parseInt(document.getElementById('invoiceYear').value);
+  const month  = parseInt(document.getElementById('invoiceMonth').value);
+  const period = document.getElementById('invoicePeriodType').value;
+  if (!year || !month) { el.textContent = ''; return; }
+
+  let start, end;
+  if (period === '15') {
+    start = new Date(year, month-1, 1);
+    end   = new Date(year, month-1, 15);
+  } else {
+    start = new Date(year, month-1, 16);
+    end   = new Date(year, month, 0);
+  }
+  const due = new Date(end);
+  due.setDate(due.getDate() + 15);
+
+  const f = d => `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+  el.textContent = `対象期間：${f(start)}〜${f(end)}　／　支払期日目安：${f(due)}`;
 }
 
 // ===========================
@@ -1943,10 +1967,6 @@ function renderCompanyList() {
       <span class="master-item-name">${c.name}
         <span class="master-item-sub">${c.contact||''}</span>
       </span>
-      <select style="width:auto;padding:6px 8px;font-size:0.78rem" onchange="updateCompanyClosing('${c.key}',this.value)">
-        <option value="eom" ${c.closingDay!=='15'?'selected':''}>月末締め</option>
-        <option value="15" ${c.closingDay==='15'?'selected':''}>15日締め</option>
-      </select>
       <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;color:var(--text-mid)">
         <input type="checkbox" style="width:auto" ${c.hasInvoice!==false?'checked':''} onchange="updateCompanyHasInvoice('${c.key}',this.checked)">請求書対象
       </label>
@@ -1961,13 +1981,6 @@ function renderCompanyList() {
     gsel.innerHTML = '<option value="">選択してください</option>' +
       (masters.groups||[]).map(g=>`<option value="${g.key}">${g.name}</option>`).join('');
   }
-}
-
-function updateCompanyClosing(key, val) {
-  const c = (masters.companies||[]).find(x=>x.key===key);
-  if (c) c.closingDay = val;
-  setMastersDirty(`締め日を変更：${c?c.name:''} → ${val==='15'?'15日締め':'月末締め'}`);
-  showToast('締め日を更新しました');
 }
 
 function updateCompanyHasInvoice(key, checked) {
@@ -2121,7 +2134,7 @@ function addCompany() {
   const name = document.getElementById('newCompanyName').value.trim();
   if (!name) { showToast('会社名を入力してください'); return; }
   const key = 'co_' + Date.now();
-  masters.companies.push({ key, name, contact:'', closingDay:'eom', hasInvoice:true });
+  masters.companies.push({ key, name, contact:'', hasInvoice:true });
   document.getElementById('newCompanyName').value = '';
   setMastersDirty(`請求先を追加：${name}`);
   renderSettings();
@@ -2225,8 +2238,9 @@ function toggleSettingSection(sectionId, arrowId) {
 // ===========================
 async function generateInvoice() {
   const companyKey = document.getElementById('invoiceCompany').value;
-  const year  = document.getElementById('invoiceYear').value;
-  const month = document.getElementById('invoiceMonth').value;
+  const year   = document.getElementById('invoiceYear').value;
+  const month  = document.getElementById('invoiceMonth').value;
+  const periodType = document.getElementById('invoicePeriodType').value;
   const statusEl = document.getElementById('invoiceStatus');
   const btn = document.getElementById('btnInvoiceGen');
 
@@ -2237,7 +2251,7 @@ async function generateInvoice() {
   try {
     const result = await gasPost({
       action: 'generateInvoicePdf',
-      companyKey, year, month
+      companyKey, year, month, periodType
     }, 2, 35000);
 
     if (result.error) {
