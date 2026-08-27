@@ -9,24 +9,24 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --ocean:       #1a4a6b;
-  --ocean-mid:   #2d6a9f;
-  --ocean-light: #e8f2fa;
-  --ocean-pale:  #f4f9fd;
-  --salmon:      #c9614a;
-  --salmon-l:    #fdf0ee;
-  --sand:        #f4f0e8;
-  --text:        #0d1a24;
-  --text-mid:    #2d3e4e;
-  --text-light:  #5a6e7e;
-  --border:      #ccd9e4;
+  --ocean:       #8a4a1f;
+  --ocean-mid:   #b06a34;
+  --ocean-light: #f7e9d8;
+  --ocean-pale:  #fdf6ef;
+  --salmon:      #8a3352;
+  --salmon-l:    #f7e9ee;
+  --sand:        #f4ede2;
+  --text:        #241a10;
+  --text-mid:    #4a3a2b;
+  --text-light:  #7a6a58;
+  --border:      #e3d2ba;
   --white:       #ffffff;
   --green:       #2a7a50;
   --green-l:     #e6f4ed;
   --red:         #b83030;
   --red-l:       #fdf0f0;
-  --spot:        #a05a00;
-  --spot-l:      #fff4e0;
+  --spot:        #b83030;
+  --spot-l:      #fdf0f0;
   --edit-bg:     #fffbea;
   --edit-bd:     #d4a820;
   --radius:      12px;
@@ -75,7 +75,7 @@ header {
   transition: color 0.15s, border-color 0.15s;
   letter-spacing: 0.03em;
 }
-.tab-btn.active { color: white; border-bottom-color: #7ec8f0; }
+.tab-btn.active { color: white; border-bottom-color: #e8b87a; }
 .tab-btn:hover { color: white; }
 
 /* ===== MAIN ===== */
@@ -169,7 +169,7 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
 .btn-primary { background: var(--ocean); color: white; padding: 12px 22px; font-size: 0.95rem; }
 .btn-primary:hover { background: var(--ocean-mid); }
 .btn-secondary { background: #e8ecf0; color: var(--text-mid); padding: 11px 16px; font-size: 0.88rem; }
-.btn-secondary:hover { background: #dde2e8; }
+.btn-secondary:hover { background: #e8dcc8; }
 .btn-danger { background: var(--red-l); color: var(--red); padding: 8px 14px; font-size: 0.82rem; }
 .btn-danger:hover { background: #fce4e4; }
 .btn-success { background: var(--green-l); color: var(--green); padding: 8px 14px; font-size: 0.82rem; }
@@ -213,7 +213,7 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
   background: var(--ocean-light); border-bottom: 1px solid var(--border);
   cursor: pointer; user-select: none;
 }
-.table-toggle:hover { background: #daeaf6; }
+.table-toggle:hover { background: #f2e2c8; }
 .rec-count {
   font-size: 0.75rem; color: var(--text-mid);
   background: white; border: 1px solid var(--border);
@@ -252,7 +252,7 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
   text-align: center; padding: 10px;
   border-top: 1px solid var(--border);
   font-size: 0.78rem; color: var(--ocean-mid);
-  cursor: pointer; background: #f7fbff;
+  cursor: pointer; background: #fdf7ee;
 }
 .show-more:hover { background: var(--ocean-light); }
 
@@ -295,7 +295,7 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
 .cal-dow {
   text-align: center; padding: 7px 2px;
   font-size: 0.65rem; font-weight: 700; color: var(--text-mid);
-  background: #f0f6fb;
+  background: #faf1e2;
   border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
 }
 .cal-dow.sun { color: #b83030; }
@@ -407,7 +407,7 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
   border-bottom: 1px solid var(--border);
   cursor: pointer; user-select: none;
 }
-.setting-card-head:hover { background: #daeaf6; }
+.setting-card-head:hover { background: #f2e2c8; }
 .setting-card-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; color: var(--ocean); text-transform: uppercase; }
 .setting-card-arrow { font-size: 0.72rem; color: var(--text-mid); transition: transform 0.2s; }
 .setting-card-arrow.open { transform: rotate(180deg); }
@@ -422,7 +422,7 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
   transform: translateX(-50%);
   z-index: 150;
   background: var(--ocean);
-  border: 2.5px solid #7ec8f0;
+  border: 2.5px solid #e8b87a;
   border-radius: 16px;
   padding: 10px 18px;
   display: none;
@@ -873,7 +873,7 @@ const COMPANY_COLORS = {
   ishinomaki: { bg: '#e8f0fa', fg: '#1a4a9b' },
   jyumonji:   { bg: '#fae8e8', fg: '#9b1a1a' },
   saikichi:   { bg: '#e8faf0', fg: '#1a7a4a' },
-  safety:     { bg: '#fff4e0', fg: '#a05a00' },
+  safety:     { bg: '#e0f5f3', fg: '#0f6b63' },
   saiki:      { bg: '#f3e8fa', fg: '#6a1a9b' },
 };
 function companyColor(key) {
