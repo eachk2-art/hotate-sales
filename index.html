@@ -919,6 +919,7 @@ let editingId = null;
 let mastersDirty = false;
 let mastersChangeLog = [];
 let mastersSnapshot = null;
+let pendingRenames = []; // 保存時に過去データへ名称を反映するためのキュー [{type:'company'|'store', key, newName}]
 let selectedDate = null;
 let calYear  = new Date().getFullYear();
 let calMonth = new Date().getMonth() + 1;
@@ -1149,6 +1150,7 @@ function clearMastersDirty() {
   mastersDirty = false;
   mastersChangeLog = [];
   mastersSnapshot = null;
+  pendingRenames = [];
   const bar = document.getElementById('settingsFixedBar');
   const btn = document.getElementById('btnSaveSettings');
   const lbl = document.getElementById('dirtyLabel');
@@ -1170,6 +1172,24 @@ async function cancelMastersEdit() {
 async function saveMastersToServer() {
   try {
     await gasPost({ action: 'saveMasters', masters });
+
+    if (pendingRenames.length > 0) {
+      showToast(`過去データの名称を反映中…（${pendingRenames.length}件）`);
+      for (const r of pendingRenames) {
+        try {
+          await gasPost({ action: 'renameRecordsName', type: r.type, key: r.key, newName: r.newName });
+          records.forEach(rec => {
+            if (r.type === 'company' && rec.company === r.key)  rec.companyName = r.newName;
+            if (r.type === 'store'   && rec.storeKey === r.key) rec.storeName   = r.newName;
+          });
+        } catch(e) {
+          showToast(`一部の過去データ反映に失敗しました（${r.newName}）`);
+        }
+      }
+      pendingRenames = [];
+      renderAll();
+    }
+
     saveLocal();
     clearMastersDirty();
     showToast('設定を保存しました ✓');
@@ -2024,6 +2044,10 @@ function applyCompanyEdit(key) {
   if (!name) { showToast('会社名を入力してください'); return; }
   const oldName = c.name;
   c.name = name; c.contact = contact; c.address = address; c.tel = tel;
+  if (oldName !== name) {
+    pendingRenames = pendingRenames.filter(r => !(r.type==='company' && r.key===key));
+    pendingRenames.push({ type:'company', key, newName:name });
+  }
   setMastersDirty(`請求先を編集：${oldName} → ${name}`);
   resetModalToDelete();
   renderSettings();
@@ -2105,6 +2129,10 @@ function applyStoreEdit(key) {
   if (!companyKey) { showToast('請求先会社を選んでください'); return; }
   const oldName = s.name;
   s.name = name; s.companyKey = companyKey; s.unit = unit;
+  if (oldName !== name) {
+    pendingRenames = pendingRenames.filter(r => !(r.type==='store' && r.key===key));
+    pendingRenames.push({ type:'store', key, newName:name });
+  }
   setMastersDirty(`納品先を編集：${oldName} → ${name}`);
   resetModalToDelete();
   renderSettings();
