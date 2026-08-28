@@ -1970,6 +1970,7 @@ function renderCompanyList() {
       <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;color:var(--text-mid)">
         <input type="checkbox" style="width:auto" ${c.hasInvoice!==false?'checked':''} onchange="updateCompanyHasInvoice('${c.key}',this.checked)">請求書対象
       </label>
+      <button class="btn btn-success btn-sm" onclick="openCompanyEditModal('${c.key}')">編集</button>
       <button class="btn btn-danger btn-sm" onclick="removeCompany('${c.key}')">削除</button>
     </div>`).join('') || '<div style="font-size:0.8rem;color:var(--text-light)">登録なし</div>';
 
@@ -1981,6 +1982,64 @@ function renderCompanyList() {
     gsel.innerHTML = '<option value="">選択してください</option>' +
       (masters.groups||[]).map(g=>`<option value="${g.key}">${g.name}</option>`).join('');
   }
+}
+
+function openCompanyEditModal(key) {
+  const c = (masters.companies||[]).find(x=>x.key===key);
+  if (!c) return;
+  document.querySelector('#deleteModal .modal').innerHTML = `
+    <h3>請求先会社を編集</h3>
+    <div style="display:grid;gap:10px">
+      <div class="form-group">
+        <span class="form-label">会社名</span>
+        <input type="text" id="editCoName" value="${(c.name||'').replace(/"/g,'&quot;')}">
+      </div>
+      <div class="form-group">
+        <span class="form-label">ご担当（任意）</span>
+        <input type="text" id="editCoContact" value="${(c.contact||'').replace(/"/g,'&quot;')}" placeholder="例：ご担当　○○ 様">
+      </div>
+      <div class="form-group">
+        <span class="form-label">住所（任意・請求書には使用しません）</span>
+        <input type="text" id="editCoAddress" value="${(c.address||'').replace(/"/g,'&quot;')}">
+      </div>
+      <div class="form-group">
+        <span class="form-label">TEL（任意）</span>
+        <input type="text" id="editCoTel" value="${(c.tel||'').replace(/"/g,'&quot;')}">
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeDeleteModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="applyCompanyEdit('${key}')">保存</button>
+    </div>`;
+  document.getElementById('deleteModal').classList.add('open');
+}
+
+function applyCompanyEdit(key) {
+  const c = (masters.companies||[]).find(x=>x.key===key);
+  if (!c) return;
+  const name    = document.getElementById('editCoName').value.trim();
+  const contact = document.getElementById('editCoContact').value.trim();
+  const address = document.getElementById('editCoAddress').value.trim();
+  const tel     = document.getElementById('editCoTel').value.trim();
+  if (!name) { showToast('会社名を入力してください'); return; }
+  const oldName = c.name;
+  c.name = name; c.contact = contact; c.address = address; c.tel = tel;
+  setMastersDirty(`請求先を編集：${oldName} → ${name}`);
+  resetModalToDelete();
+  renderSettings();
+  buildStoreSelect();
+  showToast('更新しました（保存ボタンで確定してください）');
+}
+
+function resetModalToDelete() {
+  closeDeleteModal();
+  document.querySelector('#deleteModal .modal').innerHTML = `
+    <h3>削除の確認</h3>
+    <p style="font-size:0.88rem;color:var(--text-mid)" id="deleteModalMsg"></p>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeDeleteModal()">キャンセル</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">削除する</button>
+    </div>`;
 }
 
 function updateCompanyHasInvoice(key, checked) {
@@ -1998,9 +2057,59 @@ function renderStoreList() {
       <span class="master-item-name">${s.name}
         <span class="master-item-sub">→ ${co?co.name:'不明'}　／　${s.unit||'枚'}　／　${priceLabel}</span>
       </span>
+      <button class="btn btn-success btn-sm" onclick="openStoreEditModal('${s.key}')">編集</button>
       <button class="btn btn-danger btn-sm" onclick="removeStore('${s.key}')">削除</button>
     </div>`;
   }).join('') || '<div style="font-size:0.8rem;color:var(--text-light)">登録なし</div>';
+}
+
+function openStoreEditModal(key) {
+  const s = (masters.stores||[]).find(x=>x.key===key);
+  if (!s) return;
+  const companyOpts = (masters.companies||[]).map(c =>
+    `<option value="${c.key}" ${c.key===s.companyKey?'selected':''}>${c.name}</option>`).join('');
+  document.querySelector('#deleteModal .modal').innerHTML = `
+    <h3>納品先を編集</h3>
+    <div style="display:grid;gap:10px">
+      <div class="form-group">
+        <span class="form-label">店舗名</span>
+        <input type="text" id="editStName" value="${(s.name||'').replace(/"/g,'&quot;')}">
+      </div>
+      <div class="form-group">
+        <span class="form-label">請求先会社</span>
+        <select id="editStCompany">${companyOpts}</select>
+      </div>
+      <div class="form-group">
+        <span class="form-label">単位</span>
+        <select id="editStUnit">
+          <option value="枚" ${s.unit==='枚'?'selected':''}>枚</option>
+          <option value="kg" ${s.unit==='kg'?'selected':''}>kg</option>
+        </select>
+      </div>
+      <p style="font-size:0.74rem;color:var(--text-light)">※ 単価グループ・時価の切り替えは「納品先のグループ設定」欄から行ってください</p>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeDeleteModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="applyStoreEdit('${key}')">保存</button>
+    </div>`;
+  document.getElementById('deleteModal').classList.add('open');
+}
+
+function applyStoreEdit(key) {
+  const s = (masters.stores||[]).find(x=>x.key===key);
+  if (!s) return;
+  const name       = document.getElementById('editStName').value.trim();
+  const companyKey = document.getElementById('editStCompany').value;
+  const unit       = document.getElementById('editStUnit').value;
+  if (!name)       { showToast('店舗名を入力してください'); return; }
+  if (!companyKey) { showToast('請求先会社を選んでください'); return; }
+  const oldName = s.name;
+  s.name = name; s.companyKey = companyKey; s.unit = unit;
+  setMastersDirty(`納品先を編集：${oldName} → ${name}`);
+  resetModalToDelete();
+  renderSettings();
+  buildStoreSelect();
+  showToast('更新しました（保存ボタンで確定してください）');
 }
 
 function renderPriceGroupList() {
@@ -2118,14 +2227,7 @@ function applyGroupPriceChange(groupKey) {
   masters.priceGroups.push({ groupKey, price, from });
   const chGrp = (masters.groups||[]).find(g=>g.key===groupKey);
   setMastersDirty(`単価を変更：${chGrp?chGrp.name:''} → ${price.toLocaleString()}円（${from}〜）`);
-  closeDeleteModal();
-  document.querySelector('#deleteModal .modal').innerHTML = `
-    <h3>削除の確認</h3>
-    <p style="font-size:0.88rem;color:var(--text-mid)" id="deleteModalMsg"></p>
-    <div class="modal-btns">
-      <button class="btn btn-secondary" onclick="closeDeleteModal()">キャンセル</button>
-      <button class="btn btn-danger" onclick="confirmDelete()">削除する</button>
-    </div>`;
+  resetModalToDelete();
   renderSettings();
   showToast(`${from} から ${price.toLocaleString()}円 に変更しました`);
 }
