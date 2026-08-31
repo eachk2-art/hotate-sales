@@ -78,6 +78,55 @@ header {
 .tab-btn.active { color: white; border-bottom-color: #e8b87a; }
 .tab-btn:hover { color: white; }
 
+/* ===== モバイルメニュー（ハンバーガー） ===== */
+.mobile-menu-btn {
+  display: none;
+  background: rgba(255,255,255,0.12); border: none; border-radius: 8px;
+  color: white; font-size: 1.15rem; width: 38px; height: 34px;
+  cursor: pointer; align-items: center; justify-content: center;
+}
+.mobile-menu-btn:hover { background: rgba(255,255,255,0.22); }
+
+.mobile-menu-overlay {
+  display: none; position: fixed; inset: 0; z-index: 300;
+  background: rgba(20,10,0,0.35);
+}
+.mobile-menu-overlay.open { display: block; }
+.mobile-menu-panel {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: 78%; max-width: 320px;
+  background: var(--white);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.25);
+  padding: 70px 14px 24px;
+  display: flex; flex-direction: column; gap: 6px;
+  animation: slideInMenu 0.22s ease;
+}
+@keyframes slideInMenu {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+.mobile-menu-item {
+  text-align: left;
+  padding: 14px 16px;
+  border: none; border-radius: 10px;
+  background: var(--ocean-pale);
+  color: var(--text);
+  font-family: 'Noto Sans JP', sans-serif; font-size: 0.98rem; font-weight: 700;
+  cursor: pointer;
+}
+.mobile-menu-item:active { background: var(--ocean-light); }
+.mobile-menu-item.active { background: var(--ocean); color: white; }
+
+/* PC：タブ表示を維持 / スマホ：☰メニューに切り替え */
+@media (max-width: 700px) {
+  .tab-nav { display: none; }
+  .mobile-menu-btn { display: flex; }
+}
+@media (min-width: 701px) {
+  .mobile-menu-overlay { display: none !important; }
+}
+
+
 /* ===== MAIN ===== */
 main { max-width: 900px; margin: 0 auto; padding: 20px 14px 40px; }
 
@@ -506,17 +555,32 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
     <div class="conn-badge loading" id="connBadge">
       <span class="conn-dot"></span><span id="connText">接続中…</span>
     </div>
+    <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileMenu()" aria-label="メニュー">☰</button>
   </div>
 </header>
 
-<nav class="tab-nav">
+<nav class="tab-nav" id="tabNav">
   <button class="tab-btn active" onclick="showPage('input')">📝 入力</button>
+  <button class="tab-btn" onclick="showPage('orders')">🧾 受注</button>
   <button class="tab-btn" onclick="showPage('list')">📋 一覧</button>
   <button class="tab-btn" onclick="showPage('calendar')">📅 暦</button>
   <button class="tab-btn" onclick="showPage('summary')">📊 集計</button>
   <button class="tab-btn" onclick="showPage('invoice')">🧾 請求書</button>
   <button class="tab-btn" onclick="showPage('settings')">⚙️ 設定</button>
 </nav>
+
+<div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="closeMobileMenuIfBackdrop(event)">
+  <div class="mobile-menu-panel">
+    <button class="mobile-menu-item" onclick="mobileNavTo('input')">📝 入力</button>
+    <button class="mobile-menu-item" onclick="mobileNavTo('orders')">🧾 受注</button>
+    <button class="mobile-menu-item" onclick="mobileNavTo('list')">📋 一覧</button>
+    <button class="mobile-menu-item" onclick="mobileNavTo('calendar')">📅 暦</button>
+    <button class="mobile-menu-item" onclick="mobileNavTo('summary')">📊 集計</button>
+    <button class="mobile-menu-item" onclick="mobileNavTo('invoice')">🧾 請求書</button>
+    <button class="mobile-menu-item" onclick="mobileNavTo('settings')">⚙️ 設定</button>
+  </div>
+</div>
+
 
 <main>
 
@@ -532,6 +596,7 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
       </div>
     </div>
     <div class="card-body">
+      <div id="orderConvertBanner" style="display:none;background:var(--ocean-light);border:1.5px solid var(--ocean-mid);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.85rem;font-weight:700;color:var(--ocean)"></div>
       <div class="form-grid">
         <div class="form-group">
           <span class="form-label">日付</span>
@@ -598,6 +663,78 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
   <div class="card">
     <div class="card-head"><span class="card-title">今月の集計</span></div>
     <div class="sum-grid" id="inputSummary"></div>
+  </div>
+
+</div>
+
+<!-- ========== 受注ページ ========== -->
+<div class="page" id="page-orders">
+
+  <div class="card" id="orderInputCard">
+    <div class="card-head">
+      <span class="card-title" id="orderFormTitle">新規受注入力</span>
+      <span class="edit-badge" id="orderEditBadge" style="display:none">編集中</span>
+    </div>
+    <div class="card-body">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="form-group">
+          <span class="form-label">受注日</span>
+          <input type="date" id="orderOrderDate">
+        </div>
+        <div class="form-group">
+          <span class="form-label">納品予定日</span>
+          <input type="date" id="orderDeliveryDate">
+        </div>
+      </div>
+      <div class="form-grid" style="grid-template-columns:1fr;margin-top:10px">
+        <div class="form-group">
+          <span class="form-label">納品先</span>
+          <select id="orderStore" onchange="onOrderStoreChange()">
+            <option value="">選択してください</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px">
+        <div class="form-group">
+          <span class="form-label">数量</span>
+          <input type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" id="orderQty" placeholder="0">
+        </div>
+        <div class="form-group">
+          <span class="form-label">単位</span>
+          <select id="orderUnit">
+            <option value="枚">枚</option>
+            <option value="kg">kg</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <span class="form-label">単価（円）</span>
+          <input type="text" inputmode="numeric" pattern="[0-9]*" id="orderPrice" placeholder="未定なら空欄">
+          <div class="spot-hint" id="orderSpotHint" style="display:none">⚠ 時価：出荷時に単価を確定します</div>
+        </div>
+      </div>
+      <div class="form-calc-row">
+        <div class="form-group">
+          <span class="form-label">備考</span>
+          <input type="text" id="orderRemarks" placeholder="任意">
+        </div>
+        <div class="btn-row" style="margin-top:4px">
+          <button class="btn btn-primary" id="btnOrderSubmit" onclick="submitOrder()">＋ 受注を登録</button>
+          <button class="btn btn-secondary" id="btnOrderCancel" onclick="cancelOrderEdit()" style="display:none">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">受注一覧</span>
+      <select id="orderStatusFilter" onchange="renderOrderList()" style="width:auto;padding:4px 8px;font-size:0.78rem">
+        <option value="pending">未出荷</option>
+        <option value="fulfilled">出荷済み</option>
+        <option value="cancelled">キャンセル済み</option>
+      </select>
+    </div>
+    <div id="orderListContainer"></div>
   </div>
 
 </div>
@@ -920,6 +1057,9 @@ let mastersDirty = false;
 let mastersChangeLog = [];
 let mastersSnapshot = null;
 let pendingRenames = []; // 保存時に過去データへ名称を反映するためのキュー [{type:'company'|'store', key, newName}]
+let orders = [];
+let editingOrderId = null;
+let convertingOrderId = null; // 受注→出荷登録の変換中に、対象の受注IDを保持
 let selectedDate = null;
 let calYear  = new Date().getFullYear();
 let calMonth = new Date().getMonth() + 1;
@@ -936,6 +1076,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     year: 'numeric', month: '2-digit', day: '2-digit'
   }).replace(/\//g, '-');
   document.getElementById('inputDate').value = jstStr;
+  const orderDateEl = document.getElementById('orderOrderDate');
+  if (orderDateEl) orderDateEl.value = jstStr;
 
   ['downloadMonth','summaryMonth','listMonthFilter'].forEach(id => {
     const sel = document.getElementById(id);
@@ -1009,21 +1151,39 @@ function showPage(name) {
   }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.mobile-menu-item').forEach(b => b.classList.remove('active'));
   document.getElementById(`page-${name}`).classList.add('active');
-  const tabs = ['input','list','calendar','summary','invoice','settings'];
-  document.querySelectorAll('.tab-btn')[tabs.indexOf(name)].classList.add('active');
+  const tabs = ['input','orders','list','calendar','summary','invoice','settings'];
+  const idx = tabs.indexOf(name);
+  document.querySelectorAll('.tab-btn')[idx].classList.add('active');
+  document.querySelectorAll('.mobile-menu-item')[idx].classList.add('active');
   if (name === 'calendar') renderCalendar();
   if (name === 'summary')  renderSummaryPage();
   if (name === 'list')     renderList();
   if (name === 'settings') renderSettings();
   if (name === 'invoice')  { buildInvoiceCompanySelect(); updateInvoiceClosingNote(); }
+  if (name === 'orders')   { buildOrderStoreSelect(); renderOrderList(); }
+}
+
+function toggleMobileMenu() {
+  document.getElementById('mobileMenuOverlay').classList.toggle('open');
+}
+function closeMobileMenu() {
+  document.getElementById('mobileMenuOverlay').classList.remove('open');
+}
+function closeMobileMenuIfBackdrop(ev) {
+  if (ev.target.id === 'mobileMenuOverlay') closeMobileMenu();
+}
+function mobileNavTo(name) {
+  closeMobileMenu();
+  showPage(name);
 }
 
 // ===========================
 // ストレージ
 // ===========================
 function saveLocal() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ records, masters })); } catch(e) {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ records, masters, orders })); } catch(e) {}
 }
 
 // ===========================
@@ -1101,9 +1261,10 @@ async function gasGet(params) {
 async function loadFromServer() {
   setConn('loading', '接続中…');
   try {
-    const [recRes, masRes] = await Promise.all([
+    const [recRes, masRes, ordRes] = await Promise.all([
       gasGet({ action: 'getRecords' }),
       gasGet({ action: 'getMasters' }),
+      gasGet({ action: 'getOrders' }),
     ]);
     if (recRes.records) records = recRes.records.map(r => ({
       ...r,
@@ -1119,6 +1280,17 @@ async function loadFromServer() {
       if (!masters.groups) masters.groups = [];
       if (!masters.priceGroups) masters.priceGroups = [];
     }
+    if (ordRes.orders) orders = ordRes.orders.map(o => ({
+      ...o,
+      orderDate:    normalizeDate(o.orderDate, o.id),
+      deliveryDate: normalizeDate(o.deliveryDate, o.id),
+      qty:   parseFloat(o.qty) || 0,
+      unit:  o.unit || '枚',
+      price: (o.price === '' || o.price == null) ? '' : parseFloat(o.price),
+      remarks: o.remarks || '',
+      status: o.status || 'pending',
+      linkedRecordId: o.linkedRecordId || '',
+    }));
     saveLocal();
     renderAll();
     setConn('ok', '接続済み');
@@ -1239,8 +1411,9 @@ function allGroupsForDisplay() {
 // ===========================
 // 店舗セレクト構築
 // ===========================
-function buildStoreSelect() {
-  const sel = document.getElementById('inputStore');
+function buildStoreSelectInto(selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
   const cur = sel.value;
   sel.innerHTML = '<option value="">選択してください</option>';
 
@@ -1266,6 +1439,9 @@ function buildStoreSelect() {
 
   if (cur) sel.value = cur;
 }
+
+function buildStoreSelect() { buildStoreSelectInto('inputStore'); }
+function buildOrderStoreSelect() { buildStoreSelectInto('orderStore'); }
 
 function buildInvoiceCompanySelect() {
   const sel = document.getElementById('invoiceCompany');
@@ -1367,24 +1543,41 @@ async function submitRecord() {
   btn.disabled = true;
 
   try {
-    if (editingId !== null) {
+    if (convertingOrderId !== null) {
+      const r = await gasPost({ action: 'fulfillOrder', orderId: convertingOrderId, ...rec });
+      if (r.success) {
+        records.push({ ...rec, id: r.id, amount: r.amount });
+        const o = orders.find(x => String(x.id) === String(convertingOrderId));
+        if (o) { o.status = 'fulfilled'; o.linkedRecordId = String(r.id); }
+        showToast('出荷登録が完了しました ✓');
+        saveLocal();
+        flashSave();
+        resetForm();
+        renderAll();
+        if (document.getElementById('orderListContainer')) renderOrderList();
+      } else { showToast('出荷登録に失敗しました'); }
+    } else if (editingId !== null) {
       const r = await gasPost({ action: 'updateRecord', id: editingId, ...rec });
       if (r.success) {
         const idx = records.findIndex(x => String(x.id) === String(editingId));
         if (idx >= 0) records[idx] = { ...rec, id: editingId };
         showToast('更新しました ✓');
+        saveLocal();
+        flashSave();
+        resetForm();
+        renderAll();
       } else { showToast('更新に失敗しました'); }
     } else {
       const r = await gasPost({ action: 'addRecord', ...rec });
       if (r.id) {
         records.push({ ...rec, id: r.id });
         showToast('追加しました ✓');
+        saveLocal();
+        flashSave();
+        resetForm();
+        renderAll();
       } else { showToast('追加に失敗しました'); }
     }
-    saveLocal();
-    flashSave();
-    resetForm();
-    renderAll();
   } catch(e) {
     showToast('通信エラーが発生しました');
   } finally {
@@ -1422,9 +1615,52 @@ function startEdit(id) {
 
 function cancelEdit() { resetForm(); renderAll(); }
 
+// ===========================
+// 受注 → 出荷登録（入力ページへの反映）
+// ===========================
+function startFulfillOrder(orderId) {
+  const o = orders.find(x => String(x.id) === String(orderId));
+  if (!o) return;
+  if (o.status !== 'pending') { showToast('この受注はすでに処理済みです'); return; }
+
+  resetForm();
+  convertingOrderId = String(orderId);
+
+  document.getElementById('inputDate').value = o.deliveryDate || todayJST();
+  buildStoreSelect();
+  document.getElementById('inputStore').value = o.storeKey;
+  document.getElementById('inputStore').disabled = true;
+  document.getElementById('inputQty').value = o.qty;
+  document.getElementById('inputUnit').value = o.unit;
+  document.getElementById('inputPrice').value = (o.price === '' || o.price == null) ? '' : o.price;
+  document.getElementById('inputRemarks').value = o.remarks || '';
+
+  const store = (masters.stores||[]).find(s=>s.key===o.storeKey);
+  const isSpotNoPrice = !!(store && store.isSpot) && (o.price === '' || o.price == null);
+  document.getElementById('spotHint').style.display = isSpotNoPrice ? 'block' : 'none';
+  document.getElementById('inputPrice').classList.toggle('spot-input', !!(store&&store.isSpot));
+  calcPreview();
+
+  document.getElementById('formTitle').textContent = '受注からの出荷登録';
+  document.getElementById('btnSubmit').textContent = '✓ 出荷登録して確定';
+  document.getElementById('btnCancel').style.display = 'inline';
+  document.getElementById('inputCard').classList.add('edit-mode');
+
+  const banner = document.getElementById('orderConvertBanner');
+  if (banner) {
+    banner.style.display = 'block';
+    banner.textContent = `📋 受注からの出荷登録：${o.storeName}（納品先は変更できません。日付・数量・単価・備考は修正できます）`;
+  }
+
+  showPage('input');
+  document.getElementById('inputCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function resetForm() {
   editingId = null;
+  convertingOrderId = null;
   document.getElementById('inputStore').value   = '';
+  document.getElementById('inputStore').disabled = false;
   document.getElementById('inputQty').value     = '';
   document.getElementById('inputUnit').value    = '枚';
   document.getElementById('inputPrice').value   = '';
@@ -1437,6 +1673,8 @@ function resetForm() {
   document.getElementById('btnSubmit').textContent   = '＋ 追加';
   document.getElementById('btnCancel').style.display = 'none';
   document.getElementById('inputCard').classList.remove('edit-mode');
+  const banner = document.getElementById('orderConvertBanner');
+  if (banner) banner.style.display = 'none';
 }
 
 // ===========================
@@ -1963,6 +2201,204 @@ function toggleTable(wrapId, arrowId) {
   const arrow = document.getElementById(arrowId);
   const open  = wrap.classList.toggle('open');
   arrow.classList.toggle('open', open);
+}
+
+// ===========================
+// 受注管理
+// ===========================
+function onOrderStoreChange() {
+  const storeKey = document.getElementById('orderStore').value;
+  const store = (masters.stores || []).find(s => s.key === storeKey);
+  const spotHint = document.getElementById('orderSpotHint');
+  const priceInput = document.getElementById('orderPrice');
+  if (store) {
+    document.getElementById('orderUnit').value = store.unit || '枚';
+    if (store.isSpot) {
+      spotHint.style.display = 'block';
+      priceInput.classList.add('spot-input');
+      if (editingOrderId === null) priceInput.value = '';
+    } else {
+      spotHint.style.display = 'none';
+      priceInput.classList.remove('spot-input');
+      if (editingOrderId === null) {
+        const dateStr = document.getElementById('orderDeliveryDate').value || todayJST();
+        priceInput.value = getPriceForStore(storeKey, dateStr);
+      }
+    }
+  } else {
+    spotHint.style.display = 'none';
+    priceInput.classList.remove('spot-input');
+  }
+}
+
+async function submitOrder() {
+  const orderDate    = document.getElementById('orderOrderDate').value;
+  const deliveryDate = document.getElementById('orderDeliveryDate').value;
+  const storeKey      = document.getElementById('orderStore').value;
+  const qty            = parseFloat(document.getElementById('orderQty').value);
+  const unit           = document.getElementById('orderUnit').value;
+  const priceRaw       = document.getElementById('orderPrice').value;
+  const price          = priceRaw === '' ? '' : parseFloat(priceRaw);
+  const remarks        = document.getElementById('orderRemarks').value.trim();
+
+  if (!orderDate)      { showToast('受注日を入力してください'); return; }
+  if (!deliveryDate)   { showToast('納品予定日を入力してください'); return; }
+  if (!storeKey)       { showToast('納品先を選んでください'); return; }
+  if (!qty || qty<=0)  { showToast('数量を入力してください'); return; }
+
+  const store   = (masters.stores || []).find(s => s.key === storeKey) || {};
+  const company = (masters.companies || []).find(c => c.key === store.companyKey) || {};
+
+  const ord = {
+    orderDate, deliveryDate, storeKey, storeName: store.name || storeKey,
+    company: store.companyKey || '', companyName: company.name || '',
+    qty, unit, price, remarks,
+  };
+
+  const btn = document.getElementById('btnOrderSubmit');
+  btn.innerHTML = '<span class="spinner"></span>';
+  btn.disabled = true;
+
+  try {
+    if (editingOrderId !== null) {
+      const r = await gasPost({ action: 'updateOrder', id: editingOrderId, ...ord });
+      if (r.success) {
+        const idx = orders.findIndex(x => String(x.id) === String(editingOrderId));
+        if (idx >= 0) orders[idx] = { ...orders[idx], ...ord };
+        showToast('受注を更新しました ✓');
+      } else { showToast('更新に失敗しました'); }
+    } else {
+      const r = await gasPost({ action: 'addOrder', ...ord });
+      if (r.id) {
+        orders.push({ ...ord, id: r.id, status: 'pending', linkedRecordId: '' });
+        showToast('受注を登録しました ✓');
+      } else { showToast('登録に失敗しました'); }
+    }
+    saveLocal();
+    resetOrderForm();
+    renderOrderList();
+  } catch(e) {
+    showToast('通信エラーが発生しました');
+  } finally {
+    btn.innerHTML = editingOrderId !== null ? '✓ 更新' : '＋ 受注を登録';
+    btn.disabled = false;
+  }
+}
+
+function startEditOrder(id) {
+  const o = orders.find(x => String(x.id) === String(id));
+  if (!o || o.status !== 'pending') return;
+  editingOrderId = String(id);
+  buildOrderStoreSelect();
+  document.getElementById('orderOrderDate').value    = o.orderDate;
+  document.getElementById('orderDeliveryDate').value = o.deliveryDate;
+  document.getElementById('orderStore').value        = o.storeKey;
+  document.getElementById('orderQty').value          = o.qty;
+  document.getElementById('orderUnit').value         = o.unit;
+  document.getElementById('orderPrice').value        = (o.price === '' || o.price == null) ? '' : o.price;
+  document.getElementById('orderRemarks').value      = o.remarks || '';
+  const store = (masters.stores||[]).find(s=>s.key===o.storeKey);
+  document.getElementById('orderSpotHint').style.display = (store&&store.isSpot) ? 'block' : 'none';
+  document.getElementById('orderFormTitle').textContent   = '受注を編集';
+  document.getElementById('orderEditBadge').style.display = 'inline';
+  document.getElementById('btnOrderSubmit').textContent   = '✓ 更新';
+  document.getElementById('btnOrderCancel').style.display = 'inline';
+  document.getElementById('orderInputCard').classList.add('edit-mode');
+  document.getElementById('orderInputCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelOrderEdit() { resetOrderForm(); }
+
+function resetOrderForm() {
+  editingOrderId = null;
+  document.getElementById('orderOrderDate').value    = todayJST();
+  document.getElementById('orderDeliveryDate').value = '';
+  document.getElementById('orderStore').value        = '';
+  document.getElementById('orderQty').value          = '';
+  document.getElementById('orderUnit').value         = '枚';
+  document.getElementById('orderPrice').value        = '';
+  document.getElementById('orderRemarks').value      = '';
+  document.getElementById('orderSpotHint').style.display = 'none';
+  document.getElementById('orderFormTitle').textContent   = '新規受注入力';
+  document.getElementById('orderEditBadge').style.display = 'none';
+  document.getElementById('btnOrderSubmit').textContent   = '＋ 受注を登録';
+  document.getElementById('btnOrderCancel').style.display = 'none';
+  document.getElementById('orderInputCard').classList.remove('edit-mode');
+}
+
+async function requestCancelOrder(id) {
+  const o = orders.find(x => String(x.id) === String(id));
+  if (!o) return;
+  const ok = window.confirm(`${o.storeName}（${o.deliveryDate}納品予定）の受注をキャンセルしますか？\n※キャンセル済みとして履歴に残ります。`);
+  if (!ok) return;
+  try {
+    const r = await gasPost({ action: 'cancelOrder', id });
+    if (r.success) {
+      o.status = 'cancelled';
+      saveLocal();
+      renderOrderList();
+      showToast('受注をキャンセルしました');
+    } else { showToast('キャンセルに失敗しました'); }
+  } catch(e) { showToast('通信エラーが発生しました'); }
+}
+
+function renderOrderList() {
+  const container = document.getElementById('orderListContainer');
+  if (!container) return;
+  const filter = document.getElementById('orderStatusFilter').value;
+  const today = todayJST();
+
+  let filtered = orders.filter(o => o.status === filter);
+  if (filter === 'pending') {
+    filtered.sort((a,b) => String(a.deliveryDate).localeCompare(String(b.deliveryDate)));
+  } else {
+    filtered.sort((a,b) => String(b.deliveryDate).localeCompare(String(a.deliveryDate)));
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">${SCALLOP_SVG}</div><p>該当する受注がありません</p></div>`;
+    return;
+  }
+
+  let html = '<div style="overflow-x:auto"><table class="tbl"><thead><tr>'
+    + '<th>受注日</th><th>納品予定日</th><th>納品先</th><th class="hide-sp">請求先</th>'
+    + '<th class="r">数量</th><th class="r hide-sp">単価</th><th class="hide-sp">備考</th>'
+    + '<th class="c">操作</th></tr></thead><tbody>';
+
+  filtered.forEach(o => {
+    const dp = String(o.deliveryDate).split('-');
+    const deliveryDisp = dp.length===3 ? `${parseInt(dp[1])}/${parseInt(dp[2])}` : o.deliveryDate;
+    const op = String(o.orderDate).split('-');
+    const orderDisp = op.length===3 ? `${parseInt(op[1])}/${parseInt(op[2])}` : o.orderDate;
+    const isOverdue = o.status === 'pending' && String(o.deliveryDate) < today;
+    const col = companyColor(o.company);
+    const priceDisp = (o.price === '' || o.price == null) ? '時価' : Number(o.price).toLocaleString();
+
+    let actions = '';
+    if (o.status === 'pending') {
+      actions = `
+        <button class="btn-icon btn-icon-edit" onclick="startEditOrder('${o.id}')" title="編集">✏️</button>
+        <button class="btn btn-success btn-sm" onclick="startFulfillOrder('${o.id}')">出荷登録</button>
+        <button class="btn-icon btn-icon-del" onclick="requestCancelOrder('${o.id}')" title="キャンセル">✕</button>`;
+    } else if (o.status === 'fulfilled') {
+      actions = `<span style="font-size:0.75rem;color:var(--green)">✓ 出荷済み</span>`;
+    } else {
+      actions = `<span style="font-size:0.75rem;color:var(--text-light)">キャンセル済み</span>`;
+    }
+
+    html += `<tr style="${isOverdue?'background:var(--red-l)':''}">
+      <td>${orderDisp}</td>
+      <td>${deliveryDisp}${isOverdue?' <span style="color:var(--red);font-weight:700">⚠納品予定日超過</span>':''}</td>
+      <td>${o.storeName}</td>
+      <td class="hide-sp"><span class="badge" style="background:${col.bg};color:${col.fg}">${o.companyName||o.company}</span></td>
+      <td class="r">${(o.qty||0).toLocaleString()}${o.unit||''}</td>
+      <td class="r hide-sp">${priceDisp}</td>
+      <td class="hide-sp" style="font-size:0.78rem;color:var(--text-mid)">${o.remarks||'—'}</td>
+      <td class="c" style="white-space:nowrap">${actions}</td>
+    </tr>`;
+  });
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
 }
 
 // ===========================
