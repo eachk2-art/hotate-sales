@@ -374,7 +374,10 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
 .cal-dn.sat { color: var(--ocean-mid); }
 .cal-cnt { font-size: 0.72rem; font-weight: 700; color: var(--ocean); }
 .cal-amt { font-size: 0.78rem; font-weight: 700; color: var(--salmon); margin-top: 1px; font-variant-numeric: tabular-nums; }
-@media (max-width: 500px) { .cal-cnt { display: none; } }
+@media (max-width: 500px) {
+  .cal-amt { display: none; }
+  .cal-cnt { font-size: 0.82rem; }
+}
 
 /* 日次詳細 */
 .day-detail { border-top: 1px solid var(--border); padding: 18px; background: white; display: none; }
