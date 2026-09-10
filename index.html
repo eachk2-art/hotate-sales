@@ -324,6 +324,22 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
 .invoice-item-period { font-size: 0.82rem; color: var(--text-mid); margin-top: 2px; }
 .invoice-item-issued { font-size: 0.74rem; color: var(--text-light); margin-top: 4px; }
 .invoice-item-open { flex-shrink: 0; }
+.invoice-filter {
+  display: flex; gap: 8px; padding: 10px 16px;
+  border-bottom: 1px solid var(--border); background: var(--ocean-pale);
+}
+.invoice-filter select {
+  flex: 1; min-width: 0; width: auto;
+  padding: 7px 8px; font-size: 0.82rem;
+}
+.invoice-month-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 16px; background: var(--ocean-light);
+  color: var(--ocean); font-size: 0.8rem; font-weight: 700;
+  border-bottom: 1px solid var(--border);
+}
+.invoice-month-cnt { font-size: 0.72rem; font-weight: 600; color: var(--text-light); }
+.invoice-count { padding: 8px 16px 4px; font-size: 0.74rem; color: var(--text-light); }
 
 /* ===== 月次集計 ===== */
 .sum-grid { display: grid; grid-template-columns: repeat(3,1fr); }
@@ -890,6 +906,10 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
       <span class="card-title">発行済み請求書</span>
       <button class="btn-icon" onclick="loadInvoiceList()" title="更新">🔄</button>
     </div>
+    <div class="invoice-filter" id="invoiceFilterBar" style="display:none">
+      <select id="invoiceListSeason" onchange="onInvoiceFilterChange()"></select>
+      <select id="invoiceListCompany" onchange="onInvoiceFilterChange()"></select>
+    </div>
     <div id="invoiceListContainer"></div>
   </div>
 </div>
@@ -1082,6 +1102,9 @@ let mastersSnapshot = null;
 let pendingRenames = []; // 保存時に過去データへ名称を反映するためのキュー [{type:'company'|'store', key, newName}]
 let orders = [];
 let invoiceHistory = [];
+let invoiceFilterSeason  = '';    // '' = すべてのシーズン
+let invoiceFilterCompany = '';    // '' = すべての請求先
+let invoiceFilterInit    = false; // 初回だけ「今シーズン」を自動選択するためのフラグ
 let editingOrderId = null;
 let convertingOrderId = null; // 受注→出荷登録の変換中に、対象の受注IDを保持
 let selectedDate = null;
@@ -2856,6 +2879,10 @@ async function generateInvoice() {
           <a class="btn btn-primary" href="${result.fileUrl}" target="_blank" rel="noopener">📄 今作成した請求書を開く</a>
         </div>`;
       showToast('請求書PDFをドライブに保存しました ✓');
+      // 今作った請求書が絞り込みで隠れないよう、該当シーズンに合わせて表示を切り替える
+      invoiceFilterSeason  = String(invoiceSeasonOf({ year: Number(year), month: Number(month) }));
+      invoiceFilterCompany = '';
+      invoiceFilterInit    = true;
       loadInvoiceList();
     }
   } catch(e) {
@@ -2882,30 +2909,128 @@ async function loadInvoiceList() {
   }
 }
 
+// 対象年月からシーズン開始年を求める（5月〜翌1月を1シーズンとする）
+function invoiceSeasonOf(inv) {
+  return Number(inv.month) >= 5 ? Number(inv.year) : Number(inv.year) - 1;
+}
+
+function onInvoiceFilterChange() {
+  const s = document.getElementById('invoiceListSeason');
+  const c = document.getElementById('invoiceListCompany');
+  if (s) invoiceFilterSeason  = s.value;
+  if (c) invoiceFilterCompany = c.value;
+  renderInvoiceList();
+}
+
+// 発行履歴の実データから、シーズン／請求先の選択肢を組み立てる
+function buildInvoiceFilters() {
+  const seasonSel  = document.getElementById('invoiceListSeason');
+  const companySel = document.getElementById('invoiceListCompany');
+  const bar        = document.getElementById('invoiceFilterBar');
+  if (!seasonSel || !companySel || !bar) return;
+
+  bar.style.display = invoiceHistory.length ? 'flex' : 'none';
+  if (invoiceHistory.length === 0) return;
+
+  // --- シーズン ---
+  const seasons = [];
+  invoiceHistory.forEach(inv => {
+    const y = invoiceSeasonOf(inv);
+    if (!seasons.includes(y)) seasons.push(y);
+  });
+  seasons.sort((a,b) => b - a);
+
+  // 初回のみ、今シーズンを初期選択にする（データが無ければ最新シーズン）
+  if (!invoiceFilterInit) {
+    const today = new Date();
+    const cur = (today.getMonth()+1 >= 5) ? today.getFullYear() : today.getFullYear()-1;
+    invoiceFilterSeason = seasons.includes(cur) ? String(cur)
+                        : (seasons.length ? String(seasons[0]) : '');
+    invoiceFilterInit = true;
+  }
+  // 選択中のシーズンが消えた場合は「すべて」に戻す
+  if (invoiceFilterSeason !== '' && !seasons.includes(Number(invoiceFilterSeason))) {
+    invoiceFilterSeason = '';
+  }
+  seasonSel.innerHTML = `<option value="">すべてのシーズン</option>`
+    + seasons.map(y => `<option value="${y}">${y}年シーズン</option>`).join('');
+  seasonSel.value = invoiceFilterSeason;
+
+  // --- 請求先 ---
+  const comps = [];
+  invoiceHistory.forEach(inv => {
+    if (!comps.some(c => c.key === inv.companyKey)) {
+      comps.push({ key: inv.companyKey, name: inv.companyName });
+    }
+  });
+  comps.sort((a,b) => String(a.name).localeCompare(String(b.name), 'ja'));
+
+  if (invoiceFilterCompany !== '' && !comps.some(c => c.key === invoiceFilterCompany)) {
+    invoiceFilterCompany = '';
+  }
+  companySel.innerHTML = `<option value="">すべての請求先</option>`
+    + comps.map(c => `<option value="${c.key}">${c.name}</option>`).join('');
+  companySel.value = invoiceFilterCompany;
+}
+
 function renderInvoiceList() {
   const container = document.getElementById('invoiceListContainer');
   if (!container) return;
+
+  buildInvoiceFilters();
 
   if (invoiceHistory.length === 0) {
     container.innerHTML = `<div class="empty-state"><div class="icon">${SCALLOP_SVG}</div><p>まだ請求書を発行していません</p></div>`;
     return;
   }
 
-  const html = invoiceHistory.map(inv => {
-    const col = companyColor(inv.companyKey);
-    return `<div class="invoice-item">
-      <div class="invoice-item-main">
-        <div class="invoice-item-title">
-          <span class="badge" style="background:${col.bg};color:${col.fg}">${inv.companyName}</span>
+  // --- 絞り込み ---
+  const list = invoiceHistory.filter(inv => {
+    if (invoiceFilterSeason !== '' && invoiceSeasonOf(inv) !== Number(invoiceFilterSeason)) return false;
+    if (invoiceFilterCompany !== '' && inv.companyKey !== invoiceFilterCompany) return false;
+    return true;
+  });
+
+  if (list.length === 0) {
+    container.innerHTML = `<div class="empty-state"><p>この条件に合う請求書はありません</p></div>`;
+    return;
+  }
+
+  // --- 対象年月の新しい順に並べ、月ごとにまとめる ---
+  const sorted = list.slice().sort((a,b) => {
+    if (Number(b.year)  !== Number(a.year))  return Number(b.year)  - Number(a.year);
+    if (Number(b.month) !== Number(a.month)) return Number(b.month) - Number(a.month);
+    // 同じ月の中は 15日締め → 月末締め の順
+    if (a.periodType !== b.periodType) return a.periodType === '15' ? -1 : 1;
+    return String(a.companyName).localeCompare(String(b.companyName), 'ja');
+  });
+
+  const groups = [];
+  sorted.forEach(inv => {
+    const ym = `${inv.year}-${inv.month}`;
+    let g = groups.find(x => x.ym === ym);
+    if (!g) { g = { ym, year: inv.year, month: inv.month, items: [] }; groups.push(g); }
+    g.items.push(inv);
+  });
+
+  const html = groups.map(g => {
+    const items = g.items.map(inv => {
+      const col = companyColor(inv.companyKey);
+      return `<div class="invoice-item">
+        <div class="invoice-item-main">
+          <div class="invoice-item-title">
+            <span class="badge" style="background:${col.bg};color:${col.fg}">${inv.companyName}</span>
+          </div>
+          <div class="invoice-item-period">${inv.periodLabel}</div>
+          <div class="invoice-item-issued">最終発行：${inv.issuedAt}</div>
         </div>
-        <div class="invoice-item-period">${inv.year}年${inv.month}月分・${inv.periodLabel}</div>
-        <div class="invoice-item-issued">最終発行：${inv.issuedAt}</div>
-      </div>
-      <a class="btn btn-secondary invoice-item-open" href="${inv.fileUrl}" target="_blank" rel="noopener">📄 開く</a>
-    </div>`;
+        <a class="btn btn-secondary invoice-item-open" href="${inv.fileUrl}" target="_blank" rel="noopener">📄 開く</a>
+      </div>`;
+    }).join('');
+    return `<div class="invoice-month-head"><span>${g.year}年${g.month}月分</span><span class="invoice-month-cnt">${g.items.length}件</span></div>${items}`;
   }).join('');
 
-  container.innerHTML = html;
+  container.innerHTML = `<div class="invoice-count">${list.length}件を表示中（全${invoiceHistory.length}件）</div>` + html;
 }
 </script>
 </body>
