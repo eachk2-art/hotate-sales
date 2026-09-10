@@ -1501,6 +1501,10 @@ function buildInvoiceCompanySelect() {
 }
 
 function updateInvoiceClosingNote() {
+  // 請求先・対象年月・締め区分を変えたら、前回発行時のメッセージとリンクは古くなるので消す
+  const st = document.getElementById('invoiceStatus');
+  if (st) st.innerHTML = '';
+
   const el = document.getElementById('invoiceClosingNote');
   if (!el) return;
   const year   = parseInt(document.getElementById('invoiceYear').value);
@@ -2994,6 +2998,10 @@ async function requestDeleteInvoice(companyKey, year, month, periodType) {
     const r = await gasPost({ action: 'deleteInvoice', companyKey, year, month, periodType });
     if (r.error) { showToast(r.error); return; }
     if (r.success) {
+      // 「今作成した請求書を開く」メッセージが残っていると、消したはずのPDF（ゴミ箱内）が
+      // 開けてしまい紛らわしいので、削除時に消す
+      const statusEl = document.getElementById('invoiceStatus');
+      if (statusEl) statusEl.innerHTML = '';
       showToast(r.fileNote ? '履歴を削除しました（PDFは既に削除済み）' : '請求書を削除しました');
       await loadInvoiceList();
     } else {
