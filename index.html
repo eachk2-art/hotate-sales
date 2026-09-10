@@ -324,6 +324,7 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
 .invoice-item-period { font-size: 0.82rem; color: var(--text-mid); margin-top: 2px; }
 .invoice-item-issued { font-size: 0.74rem; color: var(--text-light); margin-top: 4px; }
 .invoice-item-open { flex-shrink: 0; }
+.invoice-item-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .invoice-filter {
   display: flex; gap: 8px; padding: 10px 16px;
   border-bottom: 1px solid var(--border); background: var(--ocean-pale);
@@ -2973,6 +2974,36 @@ function buildInvoiceFilters() {
   companySel.value = invoiceFilterCompany;
 }
 
+async function requestDeleteInvoice(companyKey, year, month, periodType) {
+  const inv = invoiceHistory.find(x =>
+    String(x.companyKey) === String(companyKey) &&
+    Number(x.year)  === Number(year) &&
+    Number(x.month) === Number(month) &&
+    String(x.periodType) === String(periodType));
+  if (!inv) return;
+
+  const ok = window.confirm(
+    `次の請求書を削除しますか？\n\n`
+    + `　${inv.companyName}\n`
+    + `　${inv.year}年${inv.month}月分・${inv.periodLabel}\n\n`
+    + `※GoogleドライブのPDFと発行履歴の両方が削除されます。\n`
+    + `※販売記録は消えません。同じ条件で作り直すこともできます。`);
+  if (!ok) return;
+
+  try {
+    const r = await gasPost({ action: 'deleteInvoice', companyKey, year, month, periodType });
+    if (r.error) { showToast(r.error); return; }
+    if (r.success) {
+      showToast(r.fileNote ? '履歴を削除しました（PDFは既に削除済み）' : '請求書を削除しました');
+      await loadInvoiceList();
+    } else {
+      showToast('削除に失敗しました');
+    }
+  } catch(e) {
+    showToast('通信エラーが発生しました');
+  }
+}
+
 function renderInvoiceList() {
   const container = document.getElementById('invoiceListContainer');
   if (!container) return;
@@ -3024,7 +3055,11 @@ function renderInvoiceList() {
           <div class="invoice-item-period">${inv.periodLabel}</div>
           <div class="invoice-item-issued">最終発行：${inv.issuedAt}</div>
         </div>
-        <a class="btn btn-secondary invoice-item-open" href="${inv.fileUrl}" target="_blank" rel="noopener">📄 開く</a>
+        <div class="invoice-item-actions">
+          <a class="btn btn-secondary invoice-item-open" href="${inv.fileUrl}" target="_blank" rel="noopener">📄 開く</a>
+          <button class="btn-icon btn-icon-del" title="この請求書を削除"
+            onclick="requestDeleteInvoice('${inv.companyKey}',${inv.year},${inv.month},'${inv.periodType}')">🗑</button>
+        </div>
       </div>`;
     }).join('');
     return `<div class="invoice-month-head"><span>${g.year}年${g.month}月分</span><span class="invoice-month-cnt">${g.items.length}件</span></div>${items}`;
