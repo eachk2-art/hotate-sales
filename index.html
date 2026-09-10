@@ -324,7 +324,12 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
 .invoice-item-period { font-size: 0.82rem; color: var(--text-mid); margin-top: 2px; }
 .invoice-item-issued { font-size: 0.74rem; color: var(--text-light); margin-top: 4px; }
 .invoice-item-open { flex-shrink: 0; }
-.invoice-item-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.invoice-item-actions { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+.invoice-item-del {
+  font-size: 1.15rem; line-height: 1;
+  min-width: 42px; min-height: 42px;
+  display: flex; align-items: center; justify-content: center;
+}
 .invoice-filter {
   display: flex; gap: 8px; padding: 10px 16px;
   border-bottom: 1px solid var(--border); background: var(--ocean-pale);
@@ -3065,7 +3070,7 @@ function renderInvoiceList() {
         </div>
         <div class="invoice-item-actions">
           <a class="btn btn-secondary invoice-item-open" href="${inv.fileUrl}" target="_blank" rel="noopener">📄 開く</a>
-          <button class="btn-icon btn-icon-del" title="この請求書を削除"
+          <button class="btn-icon btn-icon-del invoice-item-del" title="この請求書を削除"
             onclick="requestDeleteInvoice('${inv.companyKey}',${inv.year},${inv.month},'${inv.periodType}')">🗑</button>
         </div>
       </div>`;
