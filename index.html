@@ -257,7 +257,39 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
   border-top-color: white; border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
+/* 明るい背景のボタン用（白のスピナーだと見えないため） */
+.spinner-dark {
+  border: 2px solid rgba(138,74,31,0.25);
+  border-top-color: var(--ocean);
+}
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== 押した手応え（全ボタン共通） =====
+   通信の完了を待たず、指が触れた瞬間に反応させる。
+   「押せたかどうか」の不安はここでほとんど解消する。 */
+button, .btn, .btn-icon, .btn-sm, .btn-save-settings, a.btn {
+  transition: transform 0.06s ease, opacity 0.15s ease, filter 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+button:active:not(:disabled),
+.btn:active:not(:disabled),
+.btn-icon:active:not(:disabled),
+.btn-save-settings:active:not(:disabled),
+a.btn:active {
+  transform: scale(0.96);
+  filter: brightness(0.92);
+}
+/* 処理中は押せないことを見た目でも伝える */
+button:disabled, .btn:disabled, .btn-icon:disabled, .btn-save-settings:disabled {
+  opacity: 0.55; cursor: progress; transform: none !important; filter: none !important;
+}
+/* 処理中に文字数が変わってもレイアウトが動かないよう幅を保持する */
+.btn-busy { min-width: var(--busy-w, auto); }
+/* 完了を一瞬だけ知らせる */
+.btn-done { background: var(--green) !important; color: #fff !important; }
+/* 再読み込み系アイコンの回転 */
+.spin-once { animation: spin 0.7s linear infinite; }
 
 /* ===== TABLE ===== */
 .table-toggle {
@@ -937,7 +969,7 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
   <div class="card">
     <div class="card-head">
       <span class="card-title">発行済み請求書</span>
-      <button class="btn-icon" onclick="loadInvoiceList()" title="更新">🔄</button>
+      <button class="btn-icon" onclick="loadInvoiceList(this)" title="更新">🔄</button>
     </div>
     <div class="invoice-filter" id="invoiceFilterBar" style="display:none">
       <select id="invoiceListSeason" onchange="onInvoiceFilterChange()"></select>
@@ -962,7 +994,7 @@ input.spot-input { border-color: var(--spot); background: var(--spot-l); }
   <div class="card">
     <div class="card-head"><span class="card-title">データ管理</span></div>
     <div class="card-body">
-      <button class="btn btn-secondary btn-sm" onclick="loadFromServer()">🔄 データ再読み込み</button>
+      <button class="btn btn-secondary btn-sm" onclick="loadFromServer(this)">🔄 データ再読み込み</button>
     </div>
   </div>
 
@@ -1338,8 +1370,9 @@ async function gasGet(params) {
   return r.json();
 }
 
-async function loadFromServer() {
+async function loadFromServer(btn) {
   setConn('loading', '接続中…');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-dark"></span> 読み込み中…'; }
   try {
     const [recRes, masRes, ordRes] = await Promise.all([
       gasGet({ action: 'getRecords' }),
@@ -1377,6 +1410,8 @@ async function loadFromServer() {
   } catch(e) {
     setConn('err', 'オフライン');
     showToast('サーバーに接続できません。ローカルデータを使用中。');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '🔄 データ再読み込み'; }
   }
 }
 
@@ -1413,6 +1448,63 @@ function clearMastersDirty() {
   if (lbl) lbl.textContent = '未保存の変更';
 }
 
+// ===========================
+// ボタンの処理中フィードバック
+// ===========================
+// GAS通信はどんなに軽い処理でも往復1秒前後かかる。外観が変わらないと
+// 「押せたのか」が分からず連打され、二重送信の原因になる。
+// 押した瞬間に disabled ＋ スピナーへ差し替え、finally で必ず元に戻す。
+//
+//   await withBusy(btn, '保存中…', async (setLabel) => { ... });
+//
+// setLabel('反映中…(2/5)') で処理の途中経過も出せる。
+async function withBusy(btn, busyLabel, fn, opts) {
+  opts = opts || {};
+  if (!btn) return await fn(() => {});
+
+  const original = btn.innerHTML;
+  const wasDisabled = btn.disabled;
+
+  // 文字数が変わってもレイアウトが動かないよう、現在の幅を固定する
+  btn.style.setProperty('--busy-w', btn.offsetWidth + 'px');
+  btn.classList.add('btn-busy');
+
+  const dark = opts.dark ? ' spinner-dark' : '';
+  const setLabel = (txt) => {
+    btn.innerHTML = `<span class="spinner${dark}"></span>${txt ? ' ' + txt : ''}`;
+  };
+
+  setLabel(busyLabel);
+  btn.disabled = true;
+
+  try {
+    return await fn(setLabel);
+  } finally {
+    // 失敗しても必ず復帰させる。ここを忘れるとボタンが押せないまま固まる
+    btn.innerHTML = original;
+    btn.disabled = wasDisabled;
+    btn.classList.remove('btn-busy');
+    btn.style.removeProperty('--busy-w');
+  }
+}
+
+// 完了を一瞬だけボタン上で知らせる（トーストと併用）
+function flashDone(btn, label) {
+  if (!btn) return;
+  const original = btn.innerHTML;
+  btn.innerHTML = label || '✓ 完了';
+  btn.classList.add('btn-done');
+  setTimeout(() => {
+    btn.innerHTML = original;
+    btn.classList.remove('btn-done');
+  }, 1400);
+}
+
+// スマホでの触覚フィードバック（対応端末のみ）
+function buzz(ms) {
+  try { if (navigator.vibrate) navigator.vibrate(ms || 25); } catch(e) {}
+}
+
 async function cancelMastersEdit() {
   const ok = window.confirm('変更を取り消しますか？\nページを再読み込みして変更前の状態に戻します。');
   if (!ok) return;
@@ -1422,31 +1514,61 @@ async function cancelMastersEdit() {
 }
 
 async function saveMastersToServer() {
+  const btn       = document.getElementById('btnSaveSettings');
+  const cancelBtn = document.querySelector('.settings-fixed-bar .btn-secondary');
+  const lbl       = document.getElementById('dirtyLabel');
+
+  // 点滅は「押してください」の合図。押した後も点滅していると、
+  // 押せていないと思われるので止める
+  if (btn) btn.classList.remove('blinking');
+  if (cancelBtn) cancelBtn.disabled = true;
+  buzz();
+
   try {
-    await gasPost({ action: 'saveMasters', masters });
+    await withBusy(btn, '保存中…', async (setLabel) => {
+      // 進捗の総数＝マスタ保存1回＋名称追従の件数
+      const total = 1 + pendingRenames.length;
+      let done = 0;
+      const step = (txt) => {
+        done++;
+        if (lbl) lbl.textContent = `${txt}（${done}/${total}）`;
+        setLabel(`${done}/${total}`);
+      };
 
-    if (pendingRenames.length > 0) {
-      showToast(`過去データの名称を反映中…（${pendingRenames.length}件）`);
-      for (const r of pendingRenames) {
-        try {
-          await gasPost({ action: 'renameRecordsName', type: r.type, key: r.key, newName: r.newName });
-          records.forEach(rec => {
-            if (r.type === 'company' && rec.company === r.key)  rec.companyName = r.newName;
-            if (r.type === 'store'   && rec.storeKey === r.key) rec.storeName   = r.newName;
-          });
-        } catch(e) {
-          showToast(`一部の過去データ反映に失敗しました（${r.newName}）`);
+      await gasPost({ action: 'saveMasters', masters });
+      step('設定を保存中');
+
+      if (pendingRenames.length > 0) {
+        // 名称変更は1件ずつ通信するため、件数が多いと時間がかかる。
+        // 何件目を処理中かを出さないと「固まった」と誤解される。
+        for (const r of pendingRenames) {
+          if (lbl) lbl.textContent = `過去データに反映中：${r.newName}`;
+          try {
+            await gasPost({ action: 'renameRecordsName', type: r.type, key: r.key, newName: r.newName });
+            records.forEach(rec => {
+              if (r.type === 'company' && rec.company === r.key)  rec.companyName = r.newName;
+              if (r.type === 'store'   && rec.storeKey === r.key) rec.storeName   = r.newName;
+            });
+          } catch(e) {
+            showToast(`一部の過去データ反映に失敗しました（${r.newName}）`);
+          }
+          step('過去データに反映中');
         }
+        pendingRenames = [];
+        renderAll();
       }
-      pendingRenames = [];
-      renderAll();
-    }
 
-    saveLocal();
-    clearMastersDirty();
-    showToast('設定を保存しました ✓');
+      saveLocal();
+      clearMastersDirty();
+      showToast('設定を保存しました ✓');
+      buzz(40);
+    });
   } catch(e) {
-    showToast('保存に失敗しました');
+    if (lbl) lbl.textContent = '未保存の変更';
+    if (btn) btn.classList.add('blinking');
+    showToast('保存に失敗しました。通信状態を確認してもう一度お試しください');
+  } finally {
+    if (cancelBtn) cancelBtn.disabled = false;
   }
 }
 
@@ -1780,17 +1902,27 @@ function closeDeleteModal() {
 async function confirmDelete() {
   if (!pendingDeleteId) return;
   const id = pendingDeleteId;
-  closeDeleteModal();
+  // モーダルは即閉じない。通信が終わるまでボタンを処理中にして、
+  // 消えたのかどうか分からない空白時間を作らない
+  const btn = document.querySelector('#deleteModal .btn-danger');
+  buzz();
   try {
-    const r = await gasPost({ action: 'deleteRecord', id });
+    const r = await withBusy(btn, '削除中…', async () => {
+      return await gasPost({ action: 'deleteRecord', id });
+    });
     if (r.success) {
       records = records.filter(x => String(x.id) !== String(id));
       if (String(editingId) === String(id)) resetForm();
       saveLocal();
       renderAll();
+      closeDeleteModal();
       showToast('削除しました');
-    } else { showToast('削除に失敗しました'); }
-  } catch(e) { showToast('通信エラーが発生しました'); }
+    } else {
+      showToast('削除に失敗しました');
+    }
+  } catch(e) {
+    showToast('通信エラーが発生しました');
+  }
 }
 
 // ===========================
@@ -2621,13 +2753,16 @@ function resetOrderForm() {
   document.getElementById('orderInputCard').classList.remove('edit-mode');
 }
 
-async function requestCancelOrder(id) {
+async function requestCancelOrder(id, btn) {
   const o = orders.find(x => String(x.id) === String(id));
   if (!o) return;
   const ok = window.confirm(`${o.storeName}（${o.deliveryDate}納品予定）の受注をキャンセルしますか？\n※キャンセル済みとして履歴に残ります。`);
   if (!ok) return;
+  buzz();
   try {
-    const r = await gasPost({ action: 'cancelOrder', id });
+    const r = await withBusy(btn, '', async () => {
+      return await gasPost({ action: 'cancelOrder', id });
+    }, { dark: true });
     if (r.success) {
       o.status = 'cancelled';
       saveLocal();
@@ -2674,7 +2809,7 @@ function renderOrderList() {
       actions = `
         <button class="btn-icon btn-icon-edit" onclick="startEditOrder('${o.id}')" title="編集">✏️</button>
         <button class="btn btn-success btn-sm" onclick="startFulfillOrder('${o.id}')">出荷登録</button>
-        <button class="btn-icon btn-icon-del" onclick="requestCancelOrder('${o.id}')" title="キャンセル">✕</button>`;
+        <button class="btn-icon btn-icon-del" onclick="requestCancelOrder('${o.id}',this)" title="キャンセル">✕</button>`;
     } else if (o.status === 'fulfilled') {
       actions = `<span style="font-size:0.75rem;color:var(--green)">✓ 出荷済み</span>`;
     } else {
@@ -3145,15 +3280,22 @@ async function generateInvoice() {
 // ===========================
 // 発行済み請求書一覧
 // ===========================
-async function loadInvoiceList() {
+async function loadInvoiceList(btn) {
   const container = document.getElementById('invoiceListContainer');
   if (!container) return;
+  if (btn) { btn.disabled = true; btn.classList.add('spin-once'); }
+  // 読み込み中は空白ではなく状態を出す（空白だと「無い」のか「まだ」のか分からない）
+  if (!invoiceHistory.length) {
+    container.innerHTML = `<div class="empty-state"><p>読み込み中…</p></div>`;
+  }
   try {
     const result = await gasPost({ action: 'getInvoiceList' }, 1, 20000);
     invoiceHistory = result.invoices || [];
     renderInvoiceList();
   } catch(e) {
     container.innerHTML = `<div class="empty-state"><p>発行履歴の読み込みに失敗しました</p></div>`;
+  } finally {
+    if (btn) { btn.disabled = false; btn.classList.remove('spin-once'); }
   }
 }
 
@@ -3221,7 +3363,7 @@ function buildInvoiceFilters() {
   companySel.value = invoiceFilterCompany;
 }
 
-async function requestDeleteInvoice(companyKey, year, month, periodType) {
+async function requestDeleteInvoice(companyKey, year, month, periodType, btn) {
   const inv = invoiceHistory.find(x =>
     String(x.companyKey) === String(companyKey) &&
     Number(x.year)  === Number(year) &&
@@ -3238,7 +3380,10 @@ async function requestDeleteInvoice(companyKey, year, month, periodType) {
   if (!ok) return;
 
   try {
-    const r = await gasPost({ action: 'deleteInvoice', companyKey, year, month, periodType });
+    buzz();
+    const r = await withBusy(btn, '', async () => {
+      return await gasPost({ action: 'deleteInvoice', companyKey, year, month, periodType });
+    }, { dark: true });
     if (r.error) { showToast(r.error); return; }
     if (r.success) {
       // 「今作成した請求書を開く」メッセージが残っていると、消したはずのPDF（ゴミ箱内）が
@@ -3309,7 +3454,7 @@ function renderInvoiceList() {
         <div class="invoice-item-actions">
           <a class="btn btn-secondary invoice-item-open" href="${inv.fileUrl}" target="_blank" rel="noopener">📄 開く</a>
           <button class="btn-icon btn-icon-del invoice-item-del" title="この請求書を削除"
-            onclick="requestDeleteInvoice('${inv.companyKey}',${inv.year},${inv.month},'${inv.periodType}')">🗑</button>
+            onclick="requestDeleteInvoice('${inv.companyKey}',${inv.year},${inv.month},'${inv.periodType}',this)">🗑</button>
         </div>
       </div>`;
     }).join('');
